@@ -26,7 +26,7 @@ async function main() {
     try {
         const {cities, days, noCache} = getCliArgs();
         const results = await Promise.allSettled(
-            cities.map((city) => processCity(city, days, noCache))
+            cities.map((cityName) => processCity(cityName, days, noCache))
         );
 
         let hasErrors = false;
@@ -40,13 +40,13 @@ async function main() {
 
         const allFailed = results.every((r) => r.status === 'rejected');
         if (allFailed && results.length > 0) {
-        process.exit(1);
+        process.exitCode = 1;
         }
 
         process.exit(0);
     } catch(error) {
         console.error(`\n Критическая ошибка: ${error.message}`);
-        process.exit(1);
+        process.exitCode = 1;
     }
 }
 

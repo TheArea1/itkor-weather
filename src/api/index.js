@@ -6,22 +6,22 @@ async function fetchWithTimeout(url, options ={}) {
 
     try {
         const response = await fetch(url, {...options, signal: controller.signal });
-        clearTimeout(timer);
 
         if (!response.ok) {
             const errorMsg = response.status >= 500
-             ? 'Ошибка сервера (статус ${response.status})'
-             : 'Ошибка запроса (статус ${response.status})';
+             ? `Ошибка сервера (статус ${response.status})`
+             : `Ошибка запроса (статус ${response.status})`;
             throw new Error(errorMsg);
         }
 
         return await response.json();
     } catch(error) {
-        clearTimeout(timer);
         if (error.name === 'AbortError'){
-            throw new Error('Превышен таймаут запроса (${config.requestTimeout} мс)');
+            throw new Error(`Превышен таймаут запроса (${config.requestTimeout} мс)`);
         }
         throw error;
+    } finally{
+        clearTimeout(timer);
     }
 }
 
@@ -36,7 +36,7 @@ export async function getCoordinates(cityName) {
     const data = await fetchWithTimeout(url.toString());
 
     if (!data.results || data.results.length === 0){
-        throw new Error('Город "${cityName}" не найден');
+        throw new Error(`Город "${cityName}" не найден`);
     }
 
     const result = data.results[0];
