@@ -1,0 +1,1 @@
+export function requestLogger(req, res, next) { const started = process.hrtime.bigint(); res.on('finish', () => { const duration = Number(process.hrtime.bigint() - started) / 1e6; console.info(JSON.stringify({ level: 'info', method: req.method, path: req.originalUrl, status: res.statusCode, durationMs: Number(duration.toFixed(1)), requestId: req.requestId })); }); next(); }

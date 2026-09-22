@@ -1,0 +1,23 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
+import { config } from './config.js';
+import { requestLogger } from './middleware/logger.js';
+import { requestId } from './middleware/request-id.js';
+import { errorHandler, notFound } from './middleware/error-handler.js';
+import { equipmentRouter } from './routes/equipment.routes.js';
+import { requestRouter } from './routes/request.routes.js';
+
+export const app = express();
+app.use(requestLogger);
+app.use(helmet());
+app.use(cors({ origin(origin, callback) { if (!origin || config.corsOrigins.includes(origin)) return callback(null, true); return callback(new Error('Источник не разрешён политикой CORS')); }, methods: ['GET', 'POST', 'PATCH', 'DELETE'] }));
+app.use(express.json({ limit: '100kb' }));
+app.use(requestId);
+app.use('/api', rateLimit({ windowMs: config.rateLimitWindowMs, limit: config.rateLimitMax, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Слишком много запросов', details: [] } } }));
+app.get('/api/health', (req, res) => res.json({ data: { status: 'ok' } }));
+app.use('/api/equipment', equipmentRouter);
+app.use('/api/requests', requestRouter);
+app.use(notFound);
+app.use(errorHandler);
