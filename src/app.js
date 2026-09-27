@@ -14,7 +14,7 @@ import { siteRouter } from './routes/site.routes.js';
 export const app = express();
 app.use(requestLogger);
 app.use(helmet());
-app.use(cors({ origin(origin, callback) { if (!origin || config.corsOrigins.includes(origin)) return callback(null, true); return callback(new Error('Источник не разрешён политикой CORS')); }, methods: ['GET', 'POST', 'PATCH', 'DELETE'] }));
+app.use(cors({ origin(origin, callback) { if (!origin || config.corsOrigins.includes(origin)) return callback(null, true); return callback(new Error('Источник не разрешён политикой CORS')); }, methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'] }));
 app.use(express.json({ limit: '100kb' }));
 app.use(requestId);
 app.use('/api', rateLimit({ windowMs: config.rateLimitWindowMs, limit: config.rateLimitMax, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Слишком много запросов', details: [] } } }));
