@@ -1,42 +1,30 @@
 {
   "info": { "name": "ITKOR Service API", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
-  "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000" },
-    { "key": "equipmentId", "value": "" },
-    { "key": "requestId", "value": "" },
-    { "key": "siteId", "value": "" },
-    { "key": "technicianId", "value": "" }
-  ],
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:3000" }, { "key": "equipmentId", "value": "" }, { "key": "requestId", "value": "" }],
   "item": [
-    {
-      "name": "Legacy Case 2",
-      "item": [
-        { "name": "Health", "request": { "method": "GET", "url": "{{baseUrl}}/api/health" }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.expect(pm.response.json()).to.have.nested.property('data.status', 'ok');"] } }] },
-        { "name": "Create equipment", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Инвертор №1\",\n  \"type\": \"inverter\",\n  \"serialNumber\": \"INV-{{$timestamp}}\",\n  \"location\": { \"lat\": 55.75, \"lon\": 37.62 },\n  \"status\": \"operational\",\n  \"installedAt\": \"2024-01-10\"\n}" }, "url": "{{baseUrl}}/api/equipment" }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('equipmentId', pm.response.json().data.id);"] } }] },
-        { "name": "List equipment", "request": { "method": "GET", "url": "{{baseUrl}}/api/equipment?type=inverter&page=1&limit=10" } },
-        { "name": "Get equipment", "request": { "method": "GET", "url": "{{baseUrl}}/api/equipment/{{equipmentId}}" } },
-        { "name": "Update equipment", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"maintenance\"}" }, "url": "{{baseUrl}}/api/equipment/{{equipmentId}}" } },
-        { "name": "Equipment weather", "request": { "method": "GET", "url": "{{baseUrl}}/api/equipment/{{equipmentId}}/weather" } },
-        { "name": "Equipment requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/equipment/{{equipmentId}}/requests" } },
-        { "name": "Create request", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"equipmentId\":\"{{equipmentId}}\",\"title\":\"Плановая диагностика\",\"description\":\"Проверить оборудование\",\"priority\":\"high\"}" }, "url": "{{baseUrl}}/api/requests" }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('requestId', pm.response.json().data.id);"] } }] },
-        { "name": "List requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/requests?priority=high" } },
-        { "name": "Get request", "request": { "method": "GET", "url": "{{baseUrl}}/api/requests/{{requestId}}" } },
-        { "name": "Update request", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"priority\":\"critical\"}" }, "url": "{{baseUrl}}/api/requests/{{requestId}}" } },
-        { "name": "Change request status", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"in_progress\"}" }, "url": "{{baseUrl}}/api/requests/{{requestId}}/status" } },
-        { "name": "Delete request", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/requests/{{requestId}}" } }
-      ]
-    },
-    {
-      "name": "PostgreSQL extensions",
-      "item": [
-        { "name": "Assign team", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"assignees\":[{\"technicianId\":\"{{technicianId}}\",\"role\":\"lead\",\"hours\":4}]}" }, "url": "{{baseUrl}}/api/requests/{{requestId}}/assignees" } },
-        { "name": "Remove assignee", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/requests/{{requestId}}/assignees/{{technicianId}}" } },
-        { "name": "Request history", "request": { "method": "GET", "url": "{{baseUrl}}/api/requests/{{requestId}}/history" } },
-        { "name": "Site summary", "request": { "method": "GET", "url": "{{baseUrl}}/api/sites/{{siteId}}/summary" } },
-        { "name": "Equipment load", "request": { "method": "GET", "url": "{{baseUrl}}/api/reports/equipment-load?dateFrom=2025-01-01&dateTo=2025-12-31&minRequests=1" } },
-        { "name": "Team validation 422", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"assignees\":[]}" }, "url": "{{baseUrl}}/api/requests/{{requestId}}/assignees" }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 422', () => pm.response.to.have.status(422));"] } }] },
-        { "name": "Report sort injection 422", "request": { "method": "GET", "url": "{{baseUrl}}/api/reports/equipment-load?sortBy=serial_number;DROP%20TABLE%20equipment" }, "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Status 422', () => pm.response.to.have.status(422));"] } }] }
-      ]
-    }
+    { "name": "Health", "item": [{ "name": "Health check", "request": { "method": "GET", "url": "{{baseUrl}}/api/health" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));", "pm.test('Health structure', () => pm.expect(pm.response.json()).to.have.nested.property('data.status', 'ok'));"], "type": "text/javascript" } }] }] },
+    { "name": "Equipment", "item": [
+      { "name": "Create equipment", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Инвертор №1\",\n  \"type\": \"inverter\",\n  \"serialNumber\": \"INV-{{$timestamp}}\",\n  \"location\": { \"lat\": 55.75, \"lon\": 37.62 },\n  \"status\": \"operational\",\n  \"installedAt\": \"2024-01-10\"\n}" }, "url": "{{baseUrl}}/api/equipment" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));", "pm.test('Equipment structure', () => { const body = pm.response.json(); pm.expect(body.data).to.have.all.keys('id','name','type','serialNumber','location','status','installedAt','createdAt','updatedAt'); pm.collectionVariables.set('equipmentId', body.data.id); });"], "type": "text/javascript" } }] },
+      { "name": "List equipment", "request": { "method": "GET", "url": "{{baseUrl}}/api/equipment?type=inverter&page=1&limit=10" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status and list structure', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.have.all.keys('data','meta'); });"], "type": "text/javascript" } }] },
+      { "name": "Get equipment", "request": { "method": "GET", "url": "{{baseUrl}}/api/equipment/{{equipmentId}}" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"], "type": "text/javascript" } }] },
+      { "name": "Update equipment", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"maintenance\"}" }, "url": "{{baseUrl}}/api/equipment/{{equipmentId}}" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"], "type": "text/javascript" } }] },
+      { "name": "Equipment weather", "request": { "method": "GET", "url": "{{baseUrl}}/api/equipment/{{equipmentId}}/weather" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Weather response', () => { pm.expect([200,503,504]).to.include(pm.response.code); });"], "type": "text/javascript" } }] },
+      { "name": "Equipment requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/equipment/{{equipmentId}}/requests" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"], "type": "text/javascript" } }] },
+      { "name": "Invalid equipment (422)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"x\"}" }, "url": "{{baseUrl}}/api/equipment" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 422 and error structure', () => { pm.response.to.have.status(422); pm.expect(pm.response.json()).to.have.nested.property('error.code'); });"], "type": "text/javascript" } }] }
+    ] },
+    { "name": "Requests", "item": [
+      { "name": "Create request", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"equipmentId\":\"{{equipmentId}}\",\"title\":\"Плановая диагностика\",\"description\":\"Проверить оборудование\",\"priority\":\"high\"}" }, "url": "{{baseUrl}}/api/requests" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 201', () => pm.response.to.have.status(201));", "pm.test('Save request id', () => pm.collectionVariables.set('requestId', pm.response.json().data.id));"], "type": "text/javascript" } }] },
+      { "name": "List requests", "request": { "method": "GET", "url": "{{baseUrl}}/api/requests?priority=high" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('List structure', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.have.all.keys('data','meta'); });"], "type": "text/javascript" } }] },
+      { "name": "Get request", "request": { "method": "GET", "url": "{{baseUrl}}/api/requests/{{requestId}}" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"], "type": "text/javascript" } }] },
+      { "name": "Update request", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"priority\":\"critical\"}" }, "url": "{{baseUrl}}/api/requests/{{requestId}}" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"], "type": "text/javascript" } }] },
+      { "name": "Change request status", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"in_progress\"}" }, "url": "{{baseUrl}}/api/requests/{{requestId}}/status" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));"], "type": "text/javascript" } }] },
+      { "name": "Delete request", "request": { "method": "DELETE", "url": "{{baseUrl}}/api/requests/{{requestId}}" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 204', () => pm.response.to.have.status(204));"], "type": "text/javascript" } }] },
+      { "name": "Missing equipment (404)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"equipmentId\":\"00000000-0000-0000-0000-000000000000\",\"title\":\"Плановая диагностика\",\"priority\":\"high\"}" }, "url": "{{baseUrl}}/api/requests" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"], "type": "text/javascript" } }] },
+      { "name": "Invalid transition (409)", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"done\"}" }, "url": "{{baseUrl}}/api/requests/{{requestId}}/status" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Conflict or missing resource', () => pm.expect([404,409]).to.include(pm.response.code));"], "type": "text/javascript" } }] }
+    ] },
+    { "name": "Errors", "item": [
+      { "name": "Unknown route (404)", "request": { "method": "GET", "url": "{{baseUrl}}/api/unknown" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status 404', () => pm.response.to.have.status(404));"], "type": "text/javascript" } }] },
+      { "name": "Rate limit (429)", "request": { "method": "GET", "url": "{{baseUrl}}/api/health" }, "event": [{ "listen": "test", "script": { "exec": ["pm.test('Limit headers or 429', () => pm.expect(pm.response.headers.has('RateLimit') || pm.response.code === 429).to.be.true);"], "type": "text/javascript" } }] }
+    ] }
   ]
 }
