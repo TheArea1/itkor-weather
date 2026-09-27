@@ -1,4 +1,5 @@
 import process from 'node:process';
+import 'dotenv/config';
 
 function readPositiveNumber(name, fallback) {
   const value = Number(process.env[name]);
@@ -18,4 +19,18 @@ export const config = {
   requestTimeoutMs: readPositiveNumber('REQUEST_TIMEOUT_MS', 5000),
   dataFile: process.env.DATA_FILE || 'data/database.json',
   weatherMaxWindSpeed: readPositiveNumber('WEATHER_MAX_WIND_SPEED', 10),
+  database: {
+    host: process.env.POSTGRES_HOST || 'localhost',
+    port: readPositiveNumber('POSTGRES_PORT', 5432),
+    name: process.env.POSTGRES_DB || 'itkor',
+    user: process.env.POSTGRES_USER || 'itkor',
+    password: process.env.POSTGRES_PASSWORD || '',
+    logging: process.env.DB_LOGGING === 'true',
+    pool: {
+      min: readPositiveNumber('DB_POOL_MIN', 0),
+      max: readPositiveNumber('DB_POOL_MAX', 10),
+      acquire: readPositiveNumber('DB_POOL_ACQUIRE_MS', 30000),
+      idle: readPositiveNumber('DB_POOL_IDLE_MS', 10000),
+    },
+  },
 };
