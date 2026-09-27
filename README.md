@@ -1,141 +1,124 @@
-# ITKOR Service API
+# ITKOR Service API — Case 2 + PostgreSQL
 
-REST API для учёта оборудования и заявок на его обслуживание. Данные хранятся в JSON-файле, доступ к ним выполняется только через репозиторий. Сервис использует внешний API [Open-Meteo](https://open-meteo.com/) для прогноза погоды по координатам оборудования.
+REST API для учёта площадок, оборудования, заявок на обслуживание и специалистов. Файловое хранилище Кейса 2 заменено на PostgreSQL; внешний контракт существующих маршрутов сохранён.
 
 ## Требования
 
 - Node.js 20+
+- Docker Desktop с Compose v2+
 - npm 9+
 
-## Установка и запуск
+## Запуск с нуля
 
 ```bash
 npm install
-cp .env.example .env
+copy .env.example .env          # Windows
+# cp .env.example .env          # Linux/macOS
+# задайте POSTGRES_PASSWORD в .env
+
+docker compose up -d postgres
+npm run db:migrate
+npm run db:seed
 npm start
 ```
 
-По умолчанию сервис доступен по адресу `http://localhost:3000`.
+PostgreSQL доступен на `localhost:${POSTGRES_PORT}`. Контейнер имеет healthcheck, а данные хранятся в именованном volume `itkor-postgres-data`.
+
+Остановка:
+
+```bash
+docker compose down
+```
+
+Удаление данных PostgreSQL:
+
+```bash
+docker compose down -v
+```
 
 ## Переменные окружения
 
-| Переменная | Назначение | Значение по умолчанию |
-|---|---|---|
-| `PORT` | Порт HTTP-сервера | `3000` |
-| `NODE_ENV` | Режим работы | `development` |
-| `CORS_ORIGINS` | Разрешённые origins через запятую | `http://localhost:3000` |
-| `RATE_LIMIT_WINDOW_MS` | Окно rate limit в мс | `900000` |
-| `RATE_LIMIT_MAX` | Максимум запросов к `/api` за окно | `100` |
-| `WEATHER_API_URL` | URL внешнего Weather API | Open-Meteo forecast |
-| `REQUEST_TIMEOUT_MS` | Таймаут Weather API в мс | `5000` |
-| `DATA_FILE` | Путь к JSON-хранилищу | `data/database.json` |
-| `WEATHER_MAX_WIND_SPEED` | Порог ветра для внешних работ, км/ч | `10` |
+| Переменная | Назначение |
+|---|---|
+| `PORT`, `NODE_ENV`, `CORS_ORIGINS` | HTTP и CORS |
+| `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` | rate limit API |
+| `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | подключение к PostgreSQL |
+| `DB_POOL_MIN`, `DB_POOL_MAX`, `DB_POOL_ACQUIRE_MS`, `DB_POOL_IDLE_MS` | пул Sequelize |
+| `DB_LOGGING` | логирование SQL (`true/false`) |
+| `WEATHER_API_URL`, `REQUEST_TIMEOUT_MS`, `WEATHER_MAX_WIND_SPEED` | прогноз погоды |
 
-## Эндпоинты
+Секреты хранятся только в `.env`; файл `.env` игнорируется Git.
 
-| Метод | Путь | Назначение |
-|---|---|---|
-| GET | `/api/health` | Проверка доступности |
-| GET, POST | `/api/equipment` | Список и создание оборудования |
-| GET, PATCH, DELETE | `/api/equipment/:id` | Оборудование по id |
-| GET | `/api/equipment/:id/requests` | Заявки оборудования |
-| GET | `/api/equipment/:id/weather` | Прогноз и пригодность окна работ |
-| GET, POST | `/api/requests` | Список и создание заявок |
-| GET, PATCH, DELETE | `/api/requests/:id` | Заявка по id |
-| PATCH | `/api/requests/:id/status` | Изменение статуса заявки |
-
-Для списков поддерживаются `page`, `limit` (1–100), `sortBy`, `order=asc|desc`, а также фильтры: оборудование — `type`, `status`, `dateFrom`, `dateTo`; заявки — `status`, `priority`, `equipmentId`, `dateFrom`, `dateTo`. Ответ списка: `{ "data": [], "meta": { "total": 0, "page": 1, "limit": 10 } }`.
-
-## Модели
-
-### Equipment
-
-```json
-{
-  "id": "UUID генерирует сервер",
-  "name": "Инвертор №1",
-  "type": "inverter",
-  "serialNumber": "INV-001",
-  "location": { "lat": 55.75, "lon": 37.62 },
-  "status": "operational",
-  "installedAt": "2024-01-10",
-  "createdAt": "2025-01-01T10:00:00.000Z",
-  "updatedAt": "2025-01-01T10:00:00.000Z"
-}
-```
-
-`type`: `turbine`, `inverter`, `sensor`, `substation`. `status`: `operational`, `maintenance`, `fault`, `decommissioned`.
-
-### Request
-
-```json
-{
-  "id": "UUID генерирует сервер",
-  "equipmentId": "UUID оборудования",
-  "title": "Плановая диагностика",
-  "description": "Проверить соединения",
-  "priority": "high",
-  "status": "new",
-  "plannedAt": "2025-01-15T09:00:00.000Z",
-  "createdAt": "2025-01-01T10:00:00.000Z",
-  "updatedAt": "2025-01-01T10:00:00.000Z"
-}
-```
-
-`priority`: `low`, `medium`, `high`, `critical`. Переходы статусов: `new → in_progress → done`, `new → rejected`, `in_progress → rejected`; из `done` и `rejected` переходов нет.
-
-Служебные поля `id`, `createdAt`, `updatedAt`, а также `status` при создании заявки формирует сервер. Неизвестные поля тела запроса игнорируются.
-
-## Примеры
-
-Создание оборудования:
+## Миграции и сиды
 
 ```bash
-curl -i -X POST http://localhost:3000/api/equipment \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Инвертор №1","type":"inverter","serialNumber":"INV-001","location":{"lat":55.75,"lon":37.62},"status":"operational","installedAt":"2024-01-10"}'
+npm run db:migrate       # применить все
+npm run db:migrate:undo  # откатить последнюю
+npm run db:seed          # 2 sites, 6 equipment, 5 technicians, 20 requests
+npm run db:seed:undo     # откатить demo seed
 ```
 
-Успешный ответ — `201 Created` с заголовком `Location` и объектом в `data`.
+Миграция создаёт таблицы `sites`, `equipment`, `equipment_passports`, `maintenance_requests`, `request_status_history`, `technicians`, `request_assignees`. Схема не создаётся через `sync`; используется только Sequelize CLI. `request_status_history` не имеет update/delete API. Внешний ключ оборудования на заявки — `ON DELETE RESTRICT`, поэтому удаление оборудования с любыми заявками запрещено на уровне БД; бизнес-слой дополнительно запрещает удаление при открытых заявках.
 
-Некорректные данные возвращают `422`:
+## Основные маршруты
 
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Проверьте поля запроса",
-    "details": [{ "field": "name", "message": "Строка от 3 до 100 символов" }]
-  },
-  "requestId": "UUID"
-}
+Существующий контракт Кейса 2 сохраняется:
+
+- `GET /api/health`
+- `GET, POST /api/equipment`
+- `GET, PATCH, DELETE /api/equipment/:id`
+- `GET /api/equipment/:id/requests`
+- `GET /api/equipment/:id/weather`
+- `GET, POST /api/requests`
+- `GET, PATCH, DELETE /api/requests/:id`
+- `PATCH /api/requests/:id/status`
+
+Списки возвращают `{ data: [], meta: { total, page, limit } }`. Поддерживаются фильтры прежнего API, сортировка по whitelist и DB-пагинация (`page >= 1`, `1 <= limit <= 100`). Карточка оборудования сохраняет `location: { lat, lon }` и дополнительно содержит `passport`. Карточка заявки содержит `assignees` с ролью и часами.
+
+Новые маршруты:
+
+- `POST /api/requests/:id/assignees` — body `{ "assignees": [{ "technicianId": "uuid", "role": "lead|member", "hours": 4 }] }`. Полная замена бригады в транзакции; ровно один `lead`, иначе `422` и rollback.
+- `DELETE /api/requests/:id/assignees/:userId` — снять специалиста.
+- `GET /api/requests/:id/history` — неизменяемая история статусов.
+- `GET /api/sites/:id/summary` — количество по статусам/приоритетам и среднее время закрытия.
+- `GET /api/reports/equipment-load?dateFrom=&dateTo=&minRequests=0` — raw SQL, `GROUP BY`, `HAVING`, количество заявок/закрытых заявок, плановые часы и последнее обслуживание.
+
+## Бизнес-правила и транзакции
+
+- Изменение статуса — одна транзакция с блокировкой заявки, обновлением и записью истории.
+- `in_progress` невозможен без исполнителей (`409`).
+- Назначение бригады — одна транзакция с блокировкой, удалением старых и вставкой новых назначений.
+- Уникальность serial number, personnel number и пары request/technician обеспечивается БД; ошибки возвращаются как `409`.
+- Ссылки на отсутствующие ресурсы возвращают `404`.
+- Raw SQL использует bind/replacements; имена сортировки выбираются только из whitelist.
+
+## ER-модель и 3НФ
+
+```mermaid
+erDiagram
+  SITES ||--o{ EQUIPMENT : contains
+  EQUIPMENT ||--|| EQUIPMENT_PASSPORTS : has
+  EQUIPMENT ||--o{ MAINTENANCE_REQUESTS : receives
+  MAINTENANCE_REQUESTS ||--o{ REQUEST_STATUS_HISTORY : records
+  MAINTENANCE_REQUESTS ||--o{ REQUEST_ASSIGNEES : assigns
+  TECHNICIANS ||--o{ REQUEST_ASSIGNEES : works
 ```
 
-Также используются: `404` для отсутствующего ресурса, `409` для конфликта serialNumber/статуса/открытых заявок, `429` при превышении лимита, `503`/`504` при недоступности Weather API.
-
-## Погода и наружные работы
-
-`GET /api/equipment/:id/weather` передаёт координаты оборудования во внешний Open-Meteo API. День подходит для наружных работ, когда осадки равны нулю и максимальная скорость ветра **ниже** `WEATHER_MAX_WIND_SPEED`. Ошибка внешнего API возвращается в едином формате и не завершает сервер.
+Каждая сущность хранит один факт: площадка отделена от оборудования, паспорт отделён от оборудования, специалисты отделены от заявок, а атрибуты N:M находятся в `request_assignees`. Это устраняет повторяющиеся группы и соответствует 3НФ.
 
 ## Безопасность
 
-- CORS разрешает только origins из `CORS_ORIGINS` и методы `GET`, `POST`, `PATCH`, `DELETE`; `*` не используется.
-- Helmet устанавливает защитные HTTP-заголовки.
-- JSON body ограничен 100 КБ.
-- Все маршруты `/api` ограничены rate limit; клиент получает `429` и стандартные limit headers.
-- Логи запросов содержат method, path, status, duration и requestId; ошибки пишутся без тела запросов и секретов.
+Helmet, ограничение JSON body 100 КБ, CORS allowlist, rate limit, request ID и безопасное логирование включены в Express. Пользовательский ввод не конкатенируется в SQL. Ошибки JSON/body, уникальности и внешних ключей нормализуются в `400/404/409/413/422`; production не раскрывает сообщения 5xx.
 
-## Структура
+## Проверка
 
-```text
-src/
-  routes/        HTTP-маршруты
-  controllers/   HTTP-ответы
-  services/      бизнес-логика и Weather API
-  repositories/  JSON-хранилище
-  middleware/    logging, request ID, обработка ошибок
-  app.js         Express-приложение (экспортируется для тестов)
-  server.js      запуск HTTP-сервера
+```bash
+npm test
+node --check src/server.js
 ```
 
-Коллекция Postman с позитивными и негативными сценариями находится в `docs/postman/ITKOR Service API.postman_collection.json`.
+Postman: `docs/postman/ITKOR Service API.postman_collection.json` — неизменённая коллекция Кейса 2. Новые запросы находятся отдельно в `docs/postman/ITKOR PostgreSQL Extensions.postman_collection.json`.
+
+## Git-подзадачи
+
+Изменения разделены по веткам `feature/01-postgres-infra` … `feature/10-postman-readme`. PR должны содержать изменения, проверку, миграции/сиды и инструкцию rollback. PR и push выполняются отдельно после ревью.

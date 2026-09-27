@@ -1,16 +1,79 @@
-import { randomUUID } from 'node:crypto';
-import { databaseRepository } from '../repositories/database.repository.js';
 import { ConflictError, NotFoundError } from '../errors/app-error.js';
+import { Equipment, MaintenanceRequest, RequestStatusHistory, sequelize } from '../models/index.js';
+import { includeAssignees } from './assignee.service.js';
+import { mapDatabaseError } from '../utils/database-error.js';
+import { parseDatabaseListQuery, toListResponse } from '../utils/database-list.js';
 import { validateRequest, validateStatus } from './validation.service.js';
-import { parseListQuery, paginate } from '../utils/list.js';
 
-const collection = 'requests';
+const requestAttributes = ['id', 'equipmentId', 'title', 'description', 'priority', 'status', 'plannedAt', 'author', 'createdAt', 'updatedAt'];
 const transitions = { new: ['in_progress', 'rejected'], in_progress: ['done', 'rejected'], done: [], rejected: [] };
+
 export const requestService = {
-  async list(query) { return paginate(await databaseRepository.getAll(collection), parseListQuery(query, ['createdAt', 'updatedAt', 'priority', 'status', 'plannedAt', 'title'], { status: true, priority: true, equipmentId: true, dateFrom: true, dateTo: true })); },
-  async get(id) { const item = await databaseRepository.findById(collection, id); if (!item) throw new NotFoundError('Заявка не найдена'); return item; },
-  async create(body) { const data = validateRequest(body); if (!await databaseRepository.findById('equipment', data.equipmentId)) throw new NotFoundError('Оборудование для заявки не найдено'); const now = new Date().toISOString(); return databaseRepository.create(collection, { id: randomUUID(), ...data, title: data.title.trim(), description: data.description || '', status: 'new', createdAt: now, updatedAt: now }); },
-  async update(id, body) { await this.get(id); const data = validateRequest(body, true); if (data.equipmentId && !await databaseRepository.findById('equipment', data.equipmentId)) throw new NotFoundError('Оборудование для заявки не найдено'); return databaseRepository.update(collection, id, { ...data, updatedAt: new Date().toISOString() }); },
-  async changeStatus(id, body) { const request = await this.get(id); const status = validateStatus(body); if (!transitions[request.status].includes(status)) throw new ConflictError(`Переход из статуса ${request.status} в ${status} недопустим`); return databaseRepository.update(collection, id, { status, updatedAt: new Date().toISOString() }); },
-  async remove(id) { await this.get(id); await databaseRepository.delete(collection, id); },
+  async list(query) {
+    const options = parseDatabaseListQuery(query, {
+      createdAt: 'createdAt', updatedAt: 'updatedAt', priority: 'priority', status: 'status', plannedAt: 'plannedAt', title: 'title',
+    }, { status: 'status', priority: 'priority', equipmentId: 'equipmentId' });
+    return toListResponse(await MaintenanceRequest.findAndCountAll({ ...options, attributes: requestAttributes, include: includeAssignees(), distinct: true }), options.meta);
+  },
+
+  async get(id) {
+    const item = await MaintenanceRequest.findByPk(id, { attributes: requestAttributes, include: includeAssignees() });
+    if (!item) throw new NotFoundError('Заявка не найдена');
+    return item;
+  },
+
+  async create(body) {
+    const data = validateRequest(body);
+    try {
+      if (!await Equipment.findByPk(data.equipmentId, { attributes: ['id'] })) throw new NotFoundError('Оборудование для заявки не найдено');
+      return await MaintenanceRequest.create({ ...data, title: data.title.trim(), description: data.description || '', status: 'new' });
+    } catch (error) {
+      if (error instanceof NotFoundError) throw error;
+      mapDatabaseError(error, { notFoundMessage: 'Оборудование для заявки не найдено' });
+    }
+  },
+
+  async update(id, body) {
+    const item = await this.get(id);
+    const data = validateRequest(body, true);
+    try {
+      if (data.equipmentId && !await Equipment.findByPk(data.equipmentId, { attributes: ['id'] })) throw new NotFoundError('Оборудование для заявки не найдено');
+      await item.update({ ...data, title: data.title?.trim() });
+      return item;
+    } catch (error) {
+      if (error instanceof NotFoundError) throw error;
+      mapDatabaseError(error, { notFoundMessage: 'Оборудование для заявки не найдено' });
+    }
+  },
+
+  async changeStatus(id, body) {
+    const status = validateStatus(body);
+    return sequelize.transaction(async (transaction) => {
+      const request = await MaintenanceRequest.findByPk(id, {
+        attributes: requestAttributes,
+        include: includeAssignees(),
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!request) throw new NotFoundError('Заявка не найдена');
+      if (!transitions[request.status].includes(status)) throw new ConflictError(`Переход из статуса ${request.status} в ${status} недопустим`);
+      if (status === 'in_progress' && request.assignees.length === 0) throw new ConflictError('Нельзя перевести заявку в in_progress без назначенных исполнителей');
+
+      const previousStatus = request.status;
+      await request.update({ status }, { transaction });
+      await RequestStatusHistory.create({
+        requestId: request.id,
+        previousStatus,
+        newStatus: status,
+        changedBy: body.changedBy || 'system',
+        comment: body.comment || null,
+      }, { transaction });
+      return request;
+    });
+  },
+
+  async remove(id) {
+    const item = await this.get(id);
+    await item.destroy();
+  },
 };
