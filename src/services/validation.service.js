@@ -36,5 +36,11 @@ export function validateRequest(body, partial = false) {
 }
 
 export function validateStatus(body) {
-  const status = body?.status; if (!REQUEST_STATUSES.includes(status)) throw new ValidationError('Некорректный статус', [{ field: 'status', message: `Допустимо: ${REQUEST_STATUSES.join(', ')}` }]); return status;
+  const status = body?.status;
+  if (!REQUEST_STATUSES.includes(status)) throw new ValidationError('Некорректный статус', [{ field: 'status', message: `Допустимо: ${REQUEST_STATUSES.join(', ')}` }]);
+  const errors = [];
+  if (body?.changedBy !== undefined && (typeof body.changedBy !== 'string' || !body.changedBy.trim() || body.changedBy.length > 150)) errors.push({ field: 'changedBy', message: 'Непустая строка не длиннее 150 символов' });
+  if (body?.comment !== undefined && (typeof body.comment !== 'string' || body.comment.length > 2000)) errors.push({ field: 'comment', message: 'Строка не длиннее 2000 символов' });
+  validationResult(errors);
+  return status;
 }

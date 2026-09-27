@@ -1,5 +1,5 @@
 import { ConflictError, NotFoundError } from '../errors/app-error.js';
-import { Equipment, MaintenanceRequest } from '../models/index.js';
+import { Equipment, MaintenanceRequest, RequestStatusHistory, sequelize } from '../models/index.js';
 import { includeAssignees } from './assignee.service.js';
 import { mapDatabaseError } from '../utils/database-error.js';
 import { parseDatabaseListQuery, toListResponse } from '../utils/database-list.js';
@@ -47,11 +47,29 @@ export const requestService = {
   },
 
   async changeStatus(id, body) {
-    const request = await this.get(id);
     const status = validateStatus(body);
-    if (!transitions[request.status].includes(status)) throw new ConflictError(`Переход из статуса ${request.status} в ${status} недопустим`);
-    await request.update({ status });
-    return request;
+    return sequelize.transaction(async (transaction) => {
+      const request = await MaintenanceRequest.findByPk(id, {
+        attributes: requestAttributes,
+        include: includeAssignees(),
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!request) throw new NotFoundError('Заявка не найдена');
+      if (!transitions[request.status].includes(status)) throw new ConflictError(`Переход из статуса ${request.status} в ${status} недопустим`);
+      if (status === 'in_progress' && request.assignees.length === 0) throw new ConflictError('Нельзя перевести заявку в in_progress без назначенных исполнителей');
+
+      const previousStatus = request.status;
+      await request.update({ status }, { transaction });
+      await RequestStatusHistory.create({
+        requestId: request.id,
+        previousStatus,
+        newStatus: status,
+        changedBy: body.changedBy || 'system',
+        comment: body.comment || null,
+      }, { transaction });
+      return request;
+    });
   },
 
   async remove(id) {
