@@ -1,5 +1,6 @@
 import { ConflictError, NotFoundError } from '../errors/app-error.js';
 import { Equipment, MaintenanceRequest } from '../models/index.js';
+import { includeAssignees } from './assignee.service.js';
 import { mapDatabaseError } from '../utils/database-error.js';
 import { parseDatabaseListQuery, toListResponse } from '../utils/database-list.js';
 import { validateRequest, validateStatus } from './validation.service.js';
@@ -12,11 +13,11 @@ export const requestService = {
     const options = parseDatabaseListQuery(query, {
       createdAt: 'createdAt', updatedAt: 'updatedAt', priority: 'priority', status: 'status', plannedAt: 'plannedAt', title: 'title',
     }, { status: 'status', priority: 'priority', equipmentId: 'equipmentId' });
-    return toListResponse(await MaintenanceRequest.findAndCountAll({ ...options, attributes: requestAttributes }), options.meta);
+    return toListResponse(await MaintenanceRequest.findAndCountAll({ ...options, attributes: requestAttributes, include: includeAssignees(), distinct: true }), options.meta);
   },
 
   async get(id) {
-    const item = await MaintenanceRequest.findByPk(id, { attributes: requestAttributes });
+    const item = await MaintenanceRequest.findByPk(id, { attributes: requestAttributes, include: includeAssignees() });
     if (!item) throw new NotFoundError('Заявка не найдена');
     return item;
   },
