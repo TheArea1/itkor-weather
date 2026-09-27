@@ -117,7 +117,7 @@ npm test
 node --check src/server.js
 ```
 
-Postman: `docs/postman/ITKOR Service API.postman_collection.json` содержит старые сценарии без изменения и новые запросы.
+Postman: `docs/postman/ITKOR Service API.postman_collection.json` — неизменённая коллекция Кейса 2. Новые запросы находятся отдельно в `docs/postman/ITKOR PostgreSQL Extensions.postman_collection.json`.
 
 ## Git-подзадачи
 
