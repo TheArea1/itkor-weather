@@ -14,7 +14,7 @@ function allowedBody(body, fields) { return Object.fromEntries(Object.entries(bo
 function enumCheck(errors, field, value, options) { if (value !== undefined && !options.includes(value)) errors.push({ field, message: `Допустимо: ${options.join(', ')}` }); }
 
 export function validateEquipment(body, partial = false) {
-  const data = allowedBody(body, ['name', 'type', 'serialNumber', 'location', 'status', 'installedAt']); const errors = [];
+  const data = allowedBody(body, ['name', 'type', 'serialNumber', 'location', 'siteId', 'status', 'installedAt']); const errors = [];
   for (const field of ['name', 'type', 'serialNumber', 'location', 'status', 'installedAt']) if (!partial && data[field] === undefined) errors.push({ field, message: 'Обязательное поле' });
   if (data.name !== undefined && (typeof data.name !== 'string' || data.name.trim().length < 3 || data.name.trim().length > 100)) errors.push({ field: 'name', message: 'Строка от 3 до 100 символов' });
   enumCheck(errors, 'type', data.type, EQUIPMENT_TYPES); enumCheck(errors, 'status', data.status, EQUIPMENT_STATUSES);
